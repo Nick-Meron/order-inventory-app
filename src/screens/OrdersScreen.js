@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -92,14 +93,37 @@ export default function OrdersScreen({ token }) {
 
           {item.items.map((line) => (
             <View key={line.id} style={styles.lineRow}>
-              <Text style={styles.lineName}>
-                {line.quantity} x {line.product ? line.product.name : 'Removed product'}
-              </Text>
+              {line.product && line.product.image_url ? (
+                <Image source={{ uri: line.product.image_url }} style={styles.thumb} />
+              ) : (
+                <View style={[styles.thumb, styles.thumbEmpty]}>
+                  <Text style={styles.thumbEmptyText}>No photo</Text>
+                </View>
+              )}
+              <View style={styles.lineInfo}>
+                <Text style={styles.lineName}>
+                  {line.product ? line.product.name : 'Removed product'}
+                </Text>
+                <Text style={styles.lineDetail}>
+                  {line.quantity} x {formatMoney(line.unit_price)}
+                </Text>
+              </View>
               <Text style={styles.lineTotal}>
                 {formatMoney(Number(line.unit_price) * line.quantity)}
               </Text>
             </View>
           ))}
+
+          {item.delivery_name ? (
+            <View style={styles.delivery}>
+              <Text style={styles.deliveryTitle}>Delivering to</Text>
+              <Text style={styles.deliveryText}>{item.delivery_name}</Text>
+              <Text style={styles.deliveryText}>{item.phone}</Text>
+              <Text style={styles.deliveryText}>
+                {item.address}, {item.city}
+              </Text>
+            </View>
+          ) : null}
 
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Total</Text>
@@ -133,10 +157,18 @@ const styles = StyleSheet.create({
   orderId: { fontFamily: fonts.bold, fontSize: 18, color: colors.text },
   status: { fontFamily: fonts.bold, fontSize: 16 },
   date: { fontFamily: fonts.regular, fontSize: 14, color: colors.muted, marginTop: 2, marginBottom: 10 },
-  lineRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
-  lineName: { flex: 1, fontFamily: fonts.regular, fontSize: 15, color: colors.text, paddingRight: 12 },
-  lineTotal: { fontFamily: fonts.regular, fontSize: 15, color: colors.text },
-  totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
+  lineRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
+  thumb: { width: 48, height: 48, backgroundColor: colors.line, marginRight: 12 },
+  thumbEmpty: { alignItems: 'center', justifyContent: 'center' },
+  thumbEmptyText: { fontFamily: fonts.regular, fontSize: 9, color: colors.muted },
+  lineInfo: { flex: 1, paddingRight: 8 },
+  lineName: { fontFamily: fonts.semi, fontSize: 15, color: colors.text },
+  lineDetail: { fontFamily: fonts.regular, fontSize: 13, color: colors.muted, marginTop: 2 },
+  lineTotal: { fontFamily: fonts.semi, fontSize: 15, color: colors.text },
+  delivery: { marginTop: 14 },
+  deliveryTitle: { fontFamily: fonts.semi, fontSize: 13, color: colors.muted, marginBottom: 2 },
+  deliveryText: { fontFamily: fonts.regular, fontSize: 14, color: colors.text, marginTop: 1 },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 },
   totalLabel: { fontFamily: fonts.semi, fontSize: 16, color: colors.muted },
   totalValue: { fontFamily: fonts.bold, fontSize: 18, color: colors.green },
 });

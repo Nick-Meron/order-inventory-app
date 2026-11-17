@@ -67,12 +67,19 @@ export default function ProductsScreen({ token, cart, onAdd }) {
       ListEmptyComponent={<Text style={styles.empty}>No products yet.</Text>}
       renderItem={({ item }) => {
         const inCart = cart[item.id] ? cart[item.id].quantity : 0;
-        const outOfStock = item.stock <= 0;
-        const maxed = inCart >= item.stock;
+        const soldOut = item.stock <= 0;
+        // What is still available to this customer after the cart.
+        const remaining = Math.max(item.stock - inCart, 0);
+        const maxed = remaining <= 0;
 
-        let stockText = `${item.stock} in stock`;
-        if (outOfStock) stockText = 'Out of stock';
-        else if (item.stock <= 5) stockText = `Only ${item.stock} left`;
+        // Customers only see a stock message when stock is low or gone.
+        let stockText = '';
+        if (soldOut) stockText = 'Out of stock';
+        else if (remaining === 0) stockText = 'No more available';
+        else if (remaining <= 5) stockText = `Only ${remaining} left`;
+
+        const cartText = inCart > 0 ? `In cart: ${inCart}` : '';
+        const infoLine = [stockText, cartText].filter(Boolean).join('  ·  ');
 
         return (
           <View style={styles.row}>
@@ -87,10 +94,9 @@ export default function ProductsScreen({ token, cart, onAdd }) {
             <View style={styles.info}>
               <Text style={styles.name}>{item.name}</Text>
               <Text style={styles.price}>{formatMoney(item.price)}</Text>
-              <Text style={[styles.stock, item.stock <= 5 && styles.stockLow]}>
-                {stockText}
-                {inCart > 0 ? `  ·  In cart: ${inCart}` : ''}
-              </Text>
+              {infoLine ? (
+                <Text style={[styles.note, stockText ? styles.noteLow : null]}>{infoLine}</Text>
+              ) : null}
             </View>
 
             <Pressable
@@ -98,7 +104,7 @@ export default function ProductsScreen({ token, cart, onAdd }) {
               onPress={() => onAdd(item)}
               disabled={maxed}
             >
-              <Text style={styles.addText}>{outOfStock ? 'Sold out' : maxed ? 'Max' : 'Add'}</Text>
+              <Text style={styles.addText}>{soldOut ? 'Sold out' : maxed ? 'Max' : 'Add'}</Text>
             </Pressable>
           </View>
         );
@@ -133,8 +139,8 @@ const styles = StyleSheet.create({
   info: { flex: 1, paddingRight: 10 },
   name: { fontFamily: fonts.semi, fontSize: 17, color: colors.text },
   price: { fontFamily: fonts.bold, fontSize: 16, color: colors.green, marginTop: 2 },
-  stock: { fontFamily: fonts.regular, fontSize: 13, color: colors.muted, marginTop: 4 },
-  stockLow: { color: '#D32F2F' },
+  note: { fontFamily: fonts.regular, fontSize: 13, color: colors.muted, marginTop: 4 },
+  noteLow: { color: '#D32F2F' },
   add: {
     backgroundColor: colors.saffron,
     paddingVertical: 10,
