@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -75,6 +76,14 @@ export default function ProductsScreen({ token, cart, onAdd }) {
 
         return (
           <View style={styles.row}>
+            {item.image_url ? (
+              <Image source={{ uri: item.image_url }} style={styles.thumb} />
+            ) : (
+              <View style={[styles.thumb, styles.thumbEmpty]}>
+                <Text style={styles.thumbEmptyText}>No photo</Text>
+              </View>
+            )}
+
             <View style={styles.info}>
               <Text style={styles.name}>{item.name}</Text>
               <Text style={styles.price}>{formatMoney(item.price)}</Text>
@@ -114,22 +123,25 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: colors.line,
   },
-  info: { flex: 1, paddingRight: 12 },
-  name: { fontFamily: fonts.semi, fontSize: 18, color: colors.text },
+  thumb: { width: 72, height: 72, backgroundColor: colors.line, marginRight: 14 },
+  thumbEmpty: { alignItems: 'center', justifyContent: 'center' },
+  thumbEmptyText: { fontFamily: fonts.regular, fontSize: 11, color: colors.muted },
+  info: { flex: 1, paddingRight: 10 },
+  name: { fontFamily: fonts.semi, fontSize: 17, color: colors.text },
   price: { fontFamily: fonts.bold, fontSize: 16, color: colors.green, marginTop: 2 },
-  stock: { fontFamily: fonts.regular, fontSize: 14, color: colors.muted, marginTop: 4 },
-  stockLow: { color: colors.danger },
+  stock: { fontFamily: fonts.regular, fontSize: 13, color: colors.muted, marginTop: 4 },
+  stockLow: { color: '#D32F2F' },
   add: {
     backgroundColor: colors.saffron,
     paddingVertical: 10,
-    paddingHorizontal: 20,
-    minWidth: 84,
+    paddingHorizontal: 16,
+    minWidth: 76,
     alignItems: 'center',
   },
   addDisabled: { opacity: 0.4 },
-  addText: { fontFamily: fonts.bold, fontSize: 16, color: colors.green },
+  addText: { fontFamily: fonts.bold, fontSize: 15, color: colors.green },
 });

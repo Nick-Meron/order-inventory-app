@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -15,9 +16,19 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { apiRequest } from '../api';
+import * as ImagePicker from 'expo-image-picker';
+import { apiRequest, apiUpload } from '../api';
 import { colors, fonts } from '../theme';
 import { formatMoney } from '../format';
+
+function buildPhotoForm(asset) {
+  const type = asset.mimeType || 'image/jpeg';
+  const extension = type === 'image/png' ? 'png' : type === 'image/webp' ? 'webp' : 'jpg';
+
+  const form = new FormData();
+  form.append('image', { uri: asset.uri, name: `photo.${extension}`, type });
+  return form;
+}
 
 export default function AdminProductsScreen({ token }) {
   const [products, setProducts] = useState([]);
@@ -31,6 +42,7 @@ export default function AdminProductsScreen({ token }) {
   const [price, setPrice] = useState('');
   const [stock, setStock] = useState('');
   const [active, setActive] = useState(true);
+  const [photo, setPhoto] = useState(null); // a newly picked photo, not uploaded yet
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -59,6 +71,7 @@ export default function AdminProductsScreen({ token }) {
     setPrice('');
     setStock('');
     setActive(true);
+    setPhoto(null);
     setFormError('');
     setEditing({});
   }
@@ -68,6 +81,7 @@ export default function AdminProductsScreen({ token }) {
     setPrice(String(product.price));
     setStock(String(product.stock));
     setActive(Boolean(product.active));
+    setPhoto(null);
     setFormError('');
     setEditing(product);
   }
@@ -75,6 +89,23 @@ export default function AdminProductsScreen({ token }) {
   function closeForm() {
     if (saving) return;
     setEditing(null);
+  }
+
+  async function pickPhoto() {
+    if (saving) return;
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setPhoto(result.assets[0]);
+      }
+    } catch (e) {
+      setFormError('Could not open the photo library.');
+    }
   }
 
   async function save() {
@@ -102,15 +133,30 @@ export default function AdminProductsScreen({ token }) {
     };
 
     setSaving(true);
+    let photoProblem = '';
     try {
+      let saved;
       if (editing && editing.id) {
-        await apiRequest(`/products/${editing.id}`, { method: 'PUT', token, body });
+        saved = await apiRequest(`/products/${editing.id}`, { method: 'PUT', token, body });
       } else {
-        await apiRequest('/products', { method: 'POST', token, body });
+        saved = await apiRequest('/products', { method: 'POST', token, body });
       }
+
+      if (photo) {
+        try {
+          await apiUpload(`/products/${saved.product.id}/image`, buildPhotoForm(photo), token);
+        } catch (e) {
+          photoProblem = e.message;
+        }
+      }
+
       setSaving(false);
       setEditing(null);
       await load();
+
+      if (photoProblem) {
+        Alert.alert('Photo not uploaded', `The product was saved, but the photo failed: ${photoProblem}`);
+      }
     } catch (e) {
       setFormError(e.message);
       setSaving(false);
@@ -163,6 +209,7 @@ export default function AdminProductsScreen({ token }) {
   }
 
   const isNew = !(editing && editing.id);
+  const previewUri = photo ? photo.uri : editing && editing.image_url ? editing.image_url : null;
 
   return (
     <View style={styles.container}>
@@ -179,6 +226,13 @@ export default function AdminProductsScreen({ token }) {
         ListEmptyComponent={<Text style={styles.empty}>No products yet.</Text>}
         renderItem={({ item }) => (
           <Pressable style={styles.row} onPress={() => openEdit(item)}>
+            {item.image_url ? (
+              <Image source={{ uri: item.image_url }} style={styles.thumb} />
+            ) : (
+              <View style={[styles.thumb, styles.thumbEmpty]}>
+                <Text style={styles.thumbEmptyText}>No photo</Text>
+              </View>
+            )}
             <View style={styles.info}>
               <Text style={[styles.name, !item.active && styles.inactiveText]}>{item.name}</Text>
               <Text style={styles.price}>{formatMoney(item.price)}</Text>
@@ -203,6 +257,20 @@ export default function AdminProductsScreen({ token }) {
             </View>
 
             <View style={styles.form}>
+              <Text style={styles.label}>Photo</Text>
+              <Pressable style={styles.photoBox} onPress={pickPhoto} disabled={saving}>
+                {previewUri ? (
+                  <Image source={{ uri: previewUri }} style={styles.photoPreview} />
+                ) : (
+                  <Text style={styles.photoHint}>Tap to choose a photo</Text>
+                )}
+              </Pressable>
+              {previewUri ? (
+                <Pressable onPress={pickPhoto} disabled={saving}>
+                  <Text style={styles.photoChange}>Change photo</Text>
+                </Pressable>
+              ) : null}
+
               <Text style={styles.label}>Name</Text>
               <TextInput
                 style={styles.input}
@@ -295,10 +363,13 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: colors.line,
   },
+  thumb: { width: 64, height: 64, backgroundColor: colors.line, marginRight: 14 },
+  thumbEmpty: { alignItems: 'center', justifyContent: 'center' },
+  thumbEmptyText: { fontFamily: fonts.regular, fontSize: 11, color: colors.muted },
   info: { flex: 1, paddingRight: 12 },
   name: { fontFamily: fonts.semi, fontSize: 18, color: colors.text },
   inactiveText: { color: colors.muted },
@@ -317,6 +388,17 @@ const styles = StyleSheet.create({
   modalTitle: { fontFamily: fonts.bold, fontSize: 26, color: colors.saffron },
   form: { padding: 24 },
   label: { fontFamily: fonts.semi, fontSize: 14, color: colors.muted, marginTop: 18 },
+  photoBox: {
+    height: 180,
+    marginTop: 10,
+    backgroundColor: colors.line,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  photoPreview: { width: '100%', height: '100%' },
+  photoHint: { fontFamily: fonts.semi, fontSize: 15, color: colors.muted },
+  photoChange: { fontFamily: fonts.semi, fontSize: 14, color: colors.green, marginTop: 10 },
   input: {
     fontFamily: fonts.regular,
     fontSize: 18,
