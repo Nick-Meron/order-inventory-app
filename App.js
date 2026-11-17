@@ -11,8 +11,8 @@ import {
 import { apiRequest } from './src/api';
 import { colors } from './src/theme';
 import AuthScreen from './src/screens/AuthScreen';
-import HomeScreen from './src/screens/HomeScreen';
 import CustomerApp from './src/screens/CustomerApp';
+import AdminApp from './src/screens/AdminApp';
 
 const TOKEN_KEY = 'auth_token';
 
@@ -92,7 +92,7 @@ export default function App() {
   if (!token || !user) {
     screen = <AuthScreen onAuthenticated={handleAuthenticated} />;
   } else if (user.role === 'admin') {
-    screen = <HomeScreen user={user} onLogout={handleLogout} />;
+    screen = <AdminApp user={user} token={token} onLogout={handleLogout} />;
   } else {
     screen = <CustomerApp user={user} token={token} onLogout={handleLogout} />;
   }
